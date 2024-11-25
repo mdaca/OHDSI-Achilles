@@ -151,6 +151,8 @@ achilles <- function(connectionDetails,
   totalStart <- Sys.time()
   achillesSql <- c()
   
+  performanceTable <- data.frame(analysis_id = integer(), elapsed_seconds = numeric(), start_time = numeric(), end_time = numeric ())
+  
   # Check if the correct parameters are supplied when running in sqlOnly mode
   if (sqlOnly && missing(connectionDetails) && is.null(sqlDialect)) {
     stop("Error: When specifying sqlOnly = TRUE, sqlDialect or connectionDetails must be supplied.")
@@ -325,11 +327,18 @@ achilles <- function(connectionDetails,
       resultsDatabaseSchema   = resultsDatabaseSchema
     )
     
+      sqlPerformanceTable <- SqlRender::loadRenderTranslateSql(
+      sqlFilename = "achilles_performance_ddl.sql",
+      packageName = "Achilles",
+      dbms        = connectionDetails$dbms,
+      resultsDatabaseSchema   = resultsDatabaseSchema
+    )
+
     # Populate achilles_analysis without the "distribution" and "distributed_field"
     # columns from achilles_analysis_details.csv
     analysisDetailsCsv <- Achilles::getAnalysisDetails()
     analysisDetailsCsv <- analysisDetailsCsv[,-c(2, 3)]
-    
+
     if (!sqlOnly) {
       # Create empty achilles_analysis
       DatabaseConnector::executeSql(
@@ -338,6 +347,16 @@ achilles <- function(connectionDetails,
         errorReportFile = file.path(
           outputFolder,
           "achillesErrorCreateAchillesAnalysis.txt"
+        ),
+        progressBar = F,
+        reportOverallTime = F
+      )
+      DatabaseConnector::executeSql(
+        connection = connection,
+        sql = sqlPerformanceTable,
+        errorReportFile = file.path(
+          outputFolder,
+          "achillesErrorCreateAchillesPerformance.txt"
         ),
         progressBar = F,
         reportOverallTime = F
@@ -381,7 +400,7 @@ achilles <- function(connectionDetails,
   
   # Generate Main Analyses
   mainAnalysisIds <- analysisDetails$analysis_id
-  
+
   mainSqls <- lapply(mainAnalysisIds, function(analysisId) {
     list(
       analysisId = analysisId,
@@ -435,7 +454,10 @@ achilles <- function(connectionDetails,
             progressBar = FALSE,
             reportOverallTime = FALSE
           )
-          delta <- Sys.time() - start
+          endTime <- Sys.time()
+          delta <- endTime - start
+          analysisId <- as.integer(mainSql$analysisId)
+          performanceTable[nrow(performanceTable) + 1,] <- c(analysisId,delta,start,endTime)
           ParallelLogger::logInfo(sprintf(
             "[Main Analysis] [COMPLETE] %d (%f %s)",
             as.integer(mainSql$analysisId),
@@ -487,6 +509,17 @@ achilles <- function(connectionDetails,
       
       ParallelLogger::stopCluster(cluster = cluster)
     }
+
+    DatabaseConnector::insertTable(
+      connection = connection,
+      databaseSchema = resultsDatabaseSchema,
+      tableName = "achilles_performance",
+      data = performanceTable,
+      dropTableIfExists = FALSE,
+      createTable = FALSE,
+      tempTable = FALSE,
+      progressBar = F
+    )
   }
   
   # Merge scratch tables into final analysis tables
@@ -511,7 +544,8 @@ achilles <- function(connectionDetails,
       smallCellCount = smallCellCount,
       outputFolder = outputFolder,
       sqlOnly = sqlOnly,
-      logFile = logFile
+      logFile = logFile,
+      performanceTable = performanceTable
     )
   })
   
@@ -1150,7 +1184,8 @@ optimizeAtlasCache <- function(connectionDetails,
                                         smallCellCount,
                                         outputFolder,
                                         sqlOnly,
-                                        logFile) {
+                                        logFile,
+                                        performanceTable) {
   castedNames <- apply(resultsTable$schema, 1, function(field) {
     SqlRender::render(
       "cast(@fieldName as @fieldType) as @fieldName",
@@ -1307,21 +1342,13 @@ optimizeAtlasCache <- function(connectionDetails,
   }
 
 .getAchillesResultBenchmark <- function(analysisId, logs) {
-  logs <- logs[logs$analysisId == analysisId,]
+  logs <- logs[logs$analysis_id == analysisId,]
   if (nrow(logs) == 1) {
-    runTime <- strsplit(logs[1,]$runTime, " ")[[1]]
-    runTimeValue <- round(as.numeric(runTime[1]), 2)
-    runTimeUnit <- runTime[2]
-    if (runTimeUnit == "mins") {
-      runTimeValue <- runTimeValue * 60
-    } else if (runTimeUnit == "hours") {
-      runTimeValue <- runTimeValue * 60 * 60
-    } else if (runTimeUnit == "days") {
-      runTimeValue <- runTimeValue * 60 * 60 * 24
-    }
+    runTime <- logs[1,]$elapsed_seconds
+    runTimeValue <- round(runTime[1], 2)
     runTimeValue
   } else {
-    "ERROR: no runtime found in log file"
+    "ERROR: no runtime found"
   }
 }
 
