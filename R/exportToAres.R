@@ -1070,10 +1070,10 @@ generateAOMeasurementReports <- function(connectionDetails, dataMeasurements, cd
     dplyr::select(c(1, 2, 3, 4, 5, 6, 7, 8, 9))
   dataRecordsByUnit <-
     DatabaseConnector::querySql(conn, queryRecordsByUnit) %>%
-    dplyr::select(c(1, 4, 5))
+    dplyr::select(c(1, 4, 5, 6))
   dataMeasurementValueDistribution <-
     DatabaseConnector::querySql(conn, queryMeasurementValueDistribution) %>%
-    dplyr::select(c(1, 2, 3, 4, 5, 6, 7, 8, 9))
+    dplyr::select(c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
   dataLowerLimitDistribution <-
     DatabaseConnector::querySql(conn, queryLowerLimitDistribution) %>%
     dplyr::select(c(1, 2, 3, 4, 5, 6, 7, 8, 9))
