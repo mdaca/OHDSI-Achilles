@@ -957,7 +957,7 @@ dropAllScratchTables <- function(connectionDetails,
     if (defaultAnalysesOnly) {
       resultsTables <-
         lapply(analysisDetails$analysis_id[analysisDetails$distribution <= 0 &
-                                             analysisDetails$IS_DEFAULT ==
+                                             analysisDetails$is_default ==
                                              1], function(id) {
                                                sprintf("%s_%d", tempAchillesPrefix, id)
                                              })

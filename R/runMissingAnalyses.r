@@ -90,7 +90,7 @@ runMissingAnalyses <- function(connectionDetails,
   }
   
   if (defaultAnalysesOnly) {
-    missingAnalyses <- missingAnalyses[missingAnalyses$IS_DEFAULT == 1,]
+    missingAnalyses <- missingAnalyses[missingAnalyses$is_default == 1,]
   }  
 
   if (nrow(missingAnalyses) == 0) {
