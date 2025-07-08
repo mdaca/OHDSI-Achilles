@@ -766,7 +766,7 @@ createIndices <- function(connectionDetails,
   indicesSql <- c()
   
   # dbms specific index operations
-  if (connectionDetails$dbms %in% c("redshift", "netezza", "bigquery", "snowflake", "spark")) {
+  if (connectionDetails$dbms %in% c("redshift", "netezza", "bigquery", "snowflake", "spark", "trino")) {
     return(sprintf(
       "/* INDEX CREATION SKIPPED, INDICES NOT SUPPORTED IN %s */",
       toupper(connectionDetails$dbms)
@@ -1099,7 +1099,7 @@ optimizeAtlasCache <- function(connectionDetails,
 }
 
 .supportsTempTables <- function(connectionDetails) {
-  !(connectionDetails$dbms %in% c("bigquery"))
+  !(connectionDetails$dbms %in% c("bigquery", "trino"))
 }
 
 .getAnalysisSql <- function(analysisId,
